@@ -174,7 +174,7 @@ def load_model_and_tokenizer(path):
     #     bnb_4bit_use_double_quant=True
     # )
 
-    # 16-bit (FP16) modda yükle, mevcut GPU'lara otomatik dağıt
+    # Load in 16-bit (FP16), auto-distribute across available GPUs
     model = AutoModelForCausalLM.from_pretrained(
         path,
         torch_dtype=torch.float16,
@@ -252,7 +252,7 @@ if __name__ == '__main__':
     # NOTE: load model after replace
     model, tokenizer = load_model_and_tokenizer(model_name_or_path)
 
-    # beta=args.pyram_beta kısmını ekleyerek makaledeki b=20 olayını bağlıyoruz
+    # Pass beta=args.pyram_beta to wire up the b=20 parameter from the paper
     out_dir_path = f"pred_e/{args.out_name}" if args.e else f"pred/{args.out_name}"
     config_compress(model, base_capacity=args.budget, pyram_mode=args.pyram, floor_alpha=args.floor_alpha, gqa_support=args.gqa_support, gqa_func=args.gqa_func, beta=args.pyram_beta, out_dir=out_dir_path)
     
