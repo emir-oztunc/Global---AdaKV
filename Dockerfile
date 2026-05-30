@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel
 
 # 5. Set working directory and copy project files
-WORKDIR /app/AdaKV
+WORKDIR /app/G-AdaKV
 COPY . .
 
 # 6. Install Python dependencies
@@ -26,7 +26,7 @@ RUN pip3 install --no-cache-dir \
     pip3 install --no-cache-dir packaging ninja transformers==4.44.2 datasets tiktoken jieba rouge_score && \
     pip3 install --no-cache-dir https://github.com/Dao-AILab/flash-attention/releases/download/v2.4.0.post1/flash_attn-2.4.0.post1+cu118torch2.0cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
 
-# 7. Build and install the AdaKV package (compiles CUDA extensions)
+# 7. Build and install the G-AdaKV package (compiles CUDA extensions)
 RUN make i
 
 # 8. Keep container alive

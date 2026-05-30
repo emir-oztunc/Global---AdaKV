@@ -40,7 +40,7 @@ We benchmark three compression strategies against a full-cache baseline across 1
 ## Project Structure
 
 ```
-AdaKV/
+G-AdaKV/
 ├── adaptive_snapkv/            # Core KV-cache compression library
 │   └── monkeypatch/
 │       ├── monkeypatch.py              # Entry point: model replacement functions
@@ -112,7 +112,7 @@ The recommended way to run experiments without managing CUDA / Python dependenci
 ### 1. Build the image
 
 ```bash
-docker build -t adakv:latest .
+docker build -t g-adakv:latest .
 ```
 
 ### 2. Run the container
@@ -120,7 +120,7 @@ docker build -t adakv:latest .
 ```bash
 docker run --gpus all -it \
   -v /path/to/your/hf_models:/models \
-  adakv:latest bash
+  g-adakv:latest bash
 ```
 
 > **Note:** Mount your HuggingFace model cache so the container can access model weights without re-downloading them.
@@ -128,7 +128,7 @@ docker run --gpus all -it \
 ### 3. Inside the container, run experiments
 
 ```bash
-cd /app/AdaKV/experiments/LongBench
+cd /app/G-AdaKV/experiments/LongBench
 bash run_budgets.sh
 ```
 
