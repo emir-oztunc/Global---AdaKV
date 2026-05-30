@@ -1,4 +1,4 @@
-#python new_pred.py --model_name_or_path meta-llama/Llama-3.1-8B-Instruct --max_length 31500 --out_name dataset_sample5_budget256 --mode dyn --budget 256
+#python new_pred.py --model_name_or_path mistralai/Mistral-7B-Instruct-v0.2 --max_length 31500 --out_name dataset_name-model_mode-budget_size --mode dyn --budget 256
 import os
 from datasets import load_dataset
 import torch
@@ -13,7 +13,13 @@ import torch.multiprocessing as mp
 import gc
 import time
 
-from adaptive_snapkv.monkeypatch.monkeypatch import config_compress, replace_llama_dynamic
+from adaptive_snapkv.monkeypatch.monkeypatch import (
+    config_compress,
+    replace_llama_dynamic,
+    replace_mistral_dynamic,
+    replace_llama_adaptive,
+    replace_mistral_adaptive
+)
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
@@ -58,7 +64,7 @@ def build_chat(tokenizer, prompt, model_name):
         prompt = header + f" ### Human: {prompt}\n###"
     elif "internlm" in model_name:
         prompt = f"<|User|>:{prompt}<eoh>\n<|Bot|>:"
-    elif "llama-3" in model_name.lower() and "instruct" in model_name.lower():
+    elif ("llama-3" in model_name.lower() or "mistral" in model_name.lower()) and "instruct" in model_name.lower():
         prompt =  [{ "role": "user", "content": prompt}]
         prompt = tokenizer.apply_chat_template(
                 prompt,
@@ -79,7 +85,11 @@ def get_pred(model, tokenizer, data, max_length, max_gen, prompt_format, dataset
     preds = []
     times = []
     with open(f"{out_path}_tmp", "w", encoding="utf-8") as f:
-        for json_obj in tqdm(data):
+        for sample_idx, json_obj in enumerate(tqdm(data)):
+            # Track which dataset/sample is being processed (used by budget_and_entropy_stats.jsonl)
+            model.config.current_dataset = dataset
+            model.config.current_sample_idx = sample_idx
+
             prompt = prompt_format.format(**json_obj)
             # truncate to fit max_length (we suggest truncate in the middle, since the left and right side may contain crucial instructions)
             tokenized_prompt = tokenizer(prompt, truncation=False, return_tensors="pt").input_ids[0]
@@ -193,9 +203,8 @@ if __name__ == '__main__':
         datasets = ["qasper", "multifieldqa_en", "hotpotqa", "2wikimqa", "gov_report", "multi_news", \
             "trec", "triviaqa", "samsum", "passage_count", "passage_retrieval_en", "lcc", "repobench-p"]
     else:
-        datasets = ["qasper", "narrativeqa", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
-                    "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
-                    "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
+        datasets = ["qasper", "narrativeqa", "multifieldqa_en", "hotpotqa", "2wikimqa", "musique", 
+        "gov_report", "qmsum", "multi_news", "trec", "triviaqa", "samsum", "passage_count", "passage_retrieval_en", "lcc", "repobench-p"]
 
     """datasets = [
                 "qasper", "narrativeqa", "multifieldqa_en", # single doc
@@ -206,7 +215,7 @@ if __name__ == '__main__':
                 "lcc", "repobench-p",                       # code
                 ]"""
 
-    datasets = ["narrativeqa"]
+    """datasets = ["narrativeqa"]"""
 
     print(datasets)
     # we design specific prompt format and max generation length for each task, feel free to modify them to optimize model output
@@ -224,7 +233,10 @@ if __name__ == '__main__':
         replace_llama_adaptive()
     elif args.mode == "dyn":
         print("Dynamic Cross-Layer mode")
-        replace_llama_dynamic()
+        if "mistral" in model_name_or_path.lower():
+            replace_mistral_dynamic()
+        else:
+            replace_llama_dynamic()
     elif args.mode == "fix":
         print("Fix mode")
         replace_mistral_fixed()

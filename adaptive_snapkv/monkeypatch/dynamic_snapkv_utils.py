@@ -883,11 +883,18 @@ def perform_cross_layer_pruning(model, past_key_values, dynamic_head_budgets, co
         json_path = os.path.join(config.out_dir, "budget_and_entropy_stats.jsonl")
     else:
         json_path = "budget_and_entropy_stats.jsonl"
-    
+
+    # Attach metadata: dataset name and sample index for traceability
+    record = {
+        "dataset": getattr(config, "current_dataset", None),
+        "sample_idx": getattr(config, "current_sample_idx", None),
+        "layers": pruning_stats,
+    }
+
     # Append to file line by line (jsonl format) to avoid reading entire file into memory
     try:
         with open(json_path, "a") as f:
-            f.write(json.dumps(pruning_stats) + "\n")
+            f.write(json.dumps(record) + "\n")
     except Exception as e:
         print(f"Failed to save pruning stats: {e}")
 

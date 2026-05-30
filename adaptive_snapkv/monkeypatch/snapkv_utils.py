@@ -7,7 +7,7 @@ import torch.nn as nn
 import math
 from typing import List, Optional, Tuple, Union, Any,Dict
 from transformers.cache_utils import Cache, DynamicCache
-
+from flash_attn import flash_attn_func
 # perform qk calculation and get indices
 # this version will not update in inference mode
 
@@ -715,3 +715,8 @@ def init_slm(self,**kwargs):
             max_capacity_prompt = self.config.base_capacity,
             )
         print(f"Compress config(SLM): max_cap={self.config.base_capacity}")
+
+
+
+
+

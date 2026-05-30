@@ -1,175 +1,280 @@
-# AdaKV
+# Adaptive KV Cache on LongBench
 
-AdaKV has been accepted at NeurIPS 2025! 🎉
+> **Graduation Thesis Project** — Evaluating the effects of Adaptive KV Cache compression methods on long-context LLM performance using the [LongBench](https://github.com/THUDM/LongBench) benchmark.
 
-<p align="center">
-    <img src="./assets/images/main.png" width=40%/>
-</p>
-<!-- This example includes five KV cache elements with corresponding attention weights. Adaptive budget allocation, reallocating budgets from Head2/3 with sparse concentrations to the dispersed Head1, increases the aggregated weights of retained cache elements from 2.26 to 2.48 compared to Uniform Allocation. This adjustment closely correlates with a reduction in eviction loss.  -->
+Built upon the original [AdaKV](https://github.com/FFY0/AdaKV) framework and extended with a **Dynamic Cross-Layer** budget allocation strategy.
 
-Adaptive budget allocation across attention heads (AdaKV) significantly improves budget utilization and post-eviction generation quality. As demonstrated below, integrating AdaKV into SnapKV and PyramidKV yields substantial gains on the sub-tasks of the Ruler Benchmark.
-![image](https://github.com/user-attachments/assets/16e00138-56a9-4716-aded-e88ded11b36d)
+---
 
+## Table of Contents
 
-## Community Implementations of AdaKV
+- [Overview](#overview)
+- [Project Structure](#project-structure)
+- [Key Components](#key-components)
+- [Quick Start with Docker](#quick-start-with-docker)
+- [Manual Setup](#manual-setup)
+- [Running Experiments](#running-experiments)
+  - [Step 1 — Generate Predictions](#step-1--generate-predictions)
+  - [Step 2 — Evaluate Results](#step-2--evaluate-results)
+- [Compression Modes](#compression-modes)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
 
-In addition to this AdaKV repository, we greatly appreciate the community’s engagement and acknowledge various community-driven implementations of AdaKV. Each offers unique advantages, and we hope these resources will also support your research:
+---
 
-* [NVIDIA/kvpress](https://github.com/NVIDIA/kvpress) NVIDIA’s open-source repository offers a hook-based, mask-driven head-wise allocation implementation, making further development easy. 
-* [FFY/Ada-kvpress](https://github.com/FFY0/AdaKV-in-NVIDIA-kvpress/tree/AdaKV) This is my implementation of AdaKV based on the official Kvpress repository, featuring efficient head-wise allocation with custom CUDA kernels.
-* [PyramidKV](https://github.com/Zefan-Cai/KVCache-Factory) The official PyramidKV repository integrates a wide range of KV cache eviction methods and provides comprehensive evaluations on existing benchmarks.
-* [kvcompress](https://github.com/IsaacRe/vllm-kvcompress) The Cloudflare team integrates Ada-KV into vLLM—an impressive and cool example of industrial deployment.
-* [Sparse Frontier](https://github.com/PiotrNawrot/sparse-frontier) The latest repository with elegant vLLM integration leverages Triton kernels to efficiently implement AdaKV and various other sparse methods.
+## Overview
 
-## Broad Works Benefiting from AdaKV
-Many cutting-edge methods have integrated the Adaptive Budget Allocation of AdaKV for further enhancement. Below are several successful cases for reference (please feel free to suggest any additions we may have missed):
+Large Language Models (LLMs) with long-context capabilities accumulate large **Key-Value (KV) Caches** during inference, which becomes a significant memory and latency bottleneck. This project investigates how **Adaptive KV Cache** compression methods affect model accuracy on diverse long-context tasks.
 
-* Identify Critical KV Cache in LLM Inference from an Output Perturbation Perspective [paper](https://arxiv.org/abs/2502.03805),[code](https://github.com/FFY0/AdaKV-in-NVIDIA-kvpress/tree/criticalkv)
-* ExpectedAttention [A KV compress methods proposed by NIVIDA kvpress team](https://github.com/NVIDIA/kvpress/)
-* Not All Heads Matter: A Head-Level KV Cache Compression Method with Integrated Retrieval and Reasoning [paper](https://arxiv.org/abs/2410.19258), [code](https://github.com/FYYFU/HeadKV/)
-* KVzip: Query-Agnostic KV Cache Compression with Context Reconstruction [paper](https://arxiv.org/abs/2505.23416)
-* SparseMM: Head Sparsity Emerges from Visual Concept Responses in MLLMs [paper](https://arxiv.org/pdf/2506.05344),[code](https://github.com/CR400AF-A/SparseMM)
-* The Sparse Frontier: Sparse Attention Trade-offs in Transformer LLMs [paper](https://arxiv.org/pdf/2504.17768), [code](https://github.com/PiotrNawrot/sparse-frontier)
-* KV-Compress: Paged KV-Cache Compression with Variable Compression Rates per Attention Head [paper](https://arxiv.org/abs/2410.00161), [code](https://arxiv.org/abs/2410.00161)
-* Draft-based Approximate Inference for LLMs [paper](https://arxiv.org/pdf/2506.08373), [code](https://github.com/furiosa-ai/draft-based-approx-llm)
-* Mixing Importance with Diversity: Joint Optimization for KV Cache Compression in Large Vision-Language Models [paper](https://arxiv.org/abs/2510.20707), [code](https://github.com/xuyang-liu16/MixKV)
+We benchmark three compression strategies against a full-cache baseline across 16 LongBench tasks at multiple budget sizes (128, 256, 512 tokens per head):
 
+| Method | Description |
+|---|---|
+| **`dyn`** (Dynamic Cross-Layer) | Budget allocated dynamically across transformer layers based on attention entropy |
+| **`ada`** (AdaKV) | Adaptive per-head budget from the original AdaKV paper |
+| **`fix`** (SnapKV Fixed) | Fixed uniform budget per head |
+| *Base* | No compression — full KV cache |
 
-## Usage of this Repo
+---
 
-### Requirements
-
-```
-transformers==4.44.2
-flash-attn==2.4.0
-
-datasets
-tiktoken
-jieba
-rouge_score
-```
-
-### Installation
+## Project Structure
 
 ```
-git clone https://github.com/FFY0/AdaKV
-cd AdaKV
-make i
+AdaKV/
+├── adaptive_snapkv/            # Core KV-cache compression library
+│   └── monkeypatch/
+│       ├── monkeypatch.py              # Entry point: model replacement functions
+│       ├── adaptive_llama_hijack.py    # AdaKV (per-head adaptive) for LLaMA
+│       ├── adaptive_mistral_hijack.py  # AdaKV (per-head adaptive) for Mistral
+│       ├── dynamic_llama_hijack.py     # Dynamic cross-layer mode for LLaMA
+│       ├── dynamic_mistral_hijack.py   # Dynamic cross-layer mode for Mistral
+│       ├── snapkv_utils.py             # Core SnapKV attention utilities
+│       └── dynamic_snapkv_utils.py     # Dynamic cross-layer attention utilities
+│
+├── csrc/                       # C++/CUDA extension source (compiled via `make i`)
+│
+├── experiments/
+│   └── LongBench/
+│       ├── config/
+│       │   ├── dataset2prompt.json     # Prompt templates for each LongBench task
+│       │   └── dataset2maxlen.json     # Max generation length per task
+│       ├── run_budgets.sh      # Main experiment runner (loops over budget sizes)
+│       ├── new_pred.py         # Prediction script (called by run_budgets.sh)
+│       ├── pred.py             # Alternative single-run prediction script
+│       ├── eval.py             # Evaluation script (computes scores from pred/)
+│       └── metrics.py          # Metric functions imported by eval.py
+│
+├── Dockerfile                  # Reproducible GPU environment (CUDA 11.8 + PyTorch 2.0)
+├── pyproject.toml              # Package metadata
+├── makefile                    # `make i` → builds csrc + installs package
+└── requirements.txt            # Full pinned dependency list
 ```
 
-### Quick Start
+---
+
+## Key Components
+
+### `adaptive_snapkv/` — Core Library
+
+The `monkeypatch` subpackage **replaces internal attention forward functions** of HuggingFace Transformers models at runtime (no model file changes required). The entry point is [`monkeypatch.py`](adaptive_snapkv/monkeypatch/monkeypatch.py), which exposes:
 
 ```python
-# replace modeling with adakv
-from adaptive_snapkv.monkeypatch.monkeypatch import replace_mistral_adaptive, replace_llama_adaptive
-replace_mistral_adaptive()
-replace_llama_adaptive()
-
-model = AutoModelForCausalLM.from_pretrained(
-    model_name_or_path,
-    config=config,
-    device_map=device_map,
-    attn_implementation="flash_attention_2",
-    torch_dtype=torch.bfloat16,
-    trust_remote_code=True,
+from adaptive_snapkv.monkeypatch.monkeypatch import (
+    config_compress,          # Set hyperparameters on the model config
+    replace_llama_dynamic,    # Activate dynamic cross-layer mode for LLaMA
+    replace_mistral_dynamic,  # Activate dynamic cross-layer mode for Mistral
+    replace_llama_adaptive,   # Activate AdaKV mode for LLaMA
+    replace_mistral_adaptive, # Activate AdaKV mode for Mistral
 )
-
-# config hyperparameters
-compress_args = {}
-def config_compress(model, window_size=32, base_capacity=512, kernel_size=7, pooling="maxpool", floor_alpha=0.5, pyram_mode = False, beta = 20):
-    model.model.config.window_size = window_size
-    model.model.config.base_capacity = base_capacity
-    model.model.config.kernel_size = kernel_size
-
-    model.model.config.pooling = pooling
-    model.model.config.floor_alpha = floor_alpha
-
-    model.model.config.pyram_mode = pyram_mode
-    model.model.config.pyram_beta = beta
-    return model
-
-model = config_compress(model, **compress_args)
 ```
 
-#### Flattened Storage and Flash Attention Support
+### `experiments/LongBench/` — Evaluation Pipeline
 
-Considering varied cache length across heads, we implement a flattened storage layout of KV cache combined with `flash_attn_varlen_func` for efficent computation.
+| File | Role |
+|---|---|
+| `run_budgets.sh` | Outer loop: runs `new_pred.py` for budgets 128, 256, 512 sequentially |
+| `new_pred.py` | Loads model, applies monkeypatch, iterates over all 16 LongBench datasets |
+| `eval.py` | Reads `pred/<run_name>/*.jsonl` and writes `result.json` with task scores |
+| `metrics.py` | F1, ROUGE, retrieval, code similarity metric implementations |
+| `config/` | JSON configs required by `new_pred.py` at runtime |
 
-##### Regular MHA Cache Storage
+---
 
-```
-Layer i:
-    head0: (t00, t01, t02)
-    head1: (t10, t11, t12)
-    head2: (t20, t21, t22) 
+## Quick Start with Docker
 
-past_key_value.update():
+The recommended way to run experiments without managing CUDA / Python dependencies manually.
 
-Layer i:
-    head0: (t00, t01, t02, t03)
-    head1: (t10, t11, t12, t13)
-    head2: (t20, t21, t22, t23)
+### Prerequisites
+- Docker with NVIDIA Container Toolkit installed
+- A GPU with ≥ 24 GB VRAM (tested on A100 80 GB)
+- HuggingFace model weights downloaded (e.g., `mistralai/Mistral-7B-Instruct-v0.2`)
 
-```
+### 1. Build the image
 
-Note. `tij` means cache element of token j on head i in this case.
-
-##### Flattened Cache Storage  
-
-The corresponding cuda code can be found in [`./csrc/csrc/cuda_api.cu`](./csrc/csrc/cuda_api.cu).
-```
-Layer i:
-    (t00, t01, t02, t03) (t10, t11) (t20, t21, t22)
-
-past_key_value.update():
-
-Layer i:
-    phase 0: malloc empty cache
-    (_, _, _, _, _) (_, _, _) (_, _, _, _)
-
-    phase 1: copy old value
-    (t00, t01, t02, t03, _) (t10, t11, _) (t20, t21, t22, _)
-    
-    phase 2: insert new value
-    (t00, t01, t02, t03, t04) (t10, t11, t12) (t20, t21, t22, t23)
+```bash
+docker build -t adakv:latest .
 ```
 
-Details about flash_attn_varlen_func can be found in [`Repo`](https://github.com/Dao-AILab/flash-attention/blob/c4b9015d74bd9f638c6fd574482accf4bbbd4197/flash_attn/flash_attn_interface.py#L1051).
+### 2. Run the container
 
-##### Peak Memory Footprint and Decoding Latency For Our Implementation:
-<p align="center">
-<img src="./assets/images/mem.png" width=30%/>     <img src="./assets/images/speed.png" width=30%/>
-</p>
-
-## Citation
-If you find this repo useful for your research, please kindly cite using this BibTeX:
+```bash
+docker run --gpus all -it \
+  -v /path/to/your/hf_models:/models \
+  adakv:latest bash
 ```
-@article{feng2024ada,
-  title={Ada-kv: Optimizing kv cache eviction by adaptive budget allocation for efficient llm inference},
-  author={Feng, Yuan and Lv, Junlin and Cao, Yukun and Xie, Xike and Zhou, S Kevin},
-  journal={arXiv preprint arXiv:2407.11550},
-  year={2024}
+
+> **Note:** Mount your HuggingFace model cache so the container can access model weights without re-downloading them.
+
+### 3. Inside the container, run experiments
+
+```bash
+cd /app/AdaKV/experiments/LongBench
+bash run_budgets.sh
+```
+
+---
+
+## Manual Setup
+
+If you prefer a local environment (requires CUDA 11.8 and Python 3.10):
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/<YOUR_USERNAME>/<YOUR_REPO>.git
+cd <YOUR_REPO>
+```
+
+### 2. Install dependencies
+
+```bash
+pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 \
+    --index-url https://download.pytorch.org/whl/cu118
+
+pip install packaging ninja transformers==4.44.2 datasets tiktoken jieba rouge_score
+
+# Flash Attention 2 (prebuilt wheel for CUDA 11.8 + PyTorch 2.0)
+pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.4.0.post1/flash_attn-2.4.0.post1+cu118torch2.0cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+```
+
+### 3. Build and install the package
+
+```bash
+make i
+# This runs: cd csrc && make   (builds CUDA extensions)
+#            pip install -e .  (installs adaptive_snapkv in editable mode)
+```
+
+---
+
+## Running Experiments
+
+All experiment commands are run from the `experiments/LongBench/` directory.
+
+```bash
+cd experiments/LongBench
+```
+
+### Step 1 — Generate Predictions
+
+#### Option A: Automated multi-budget run (recommended)
+
+Edit the variables at the top of `run_budgets.sh` to set your model path and mode, then:
+
+```bash
+bash run_budgets.sh
+```
+
+This will run `new_pred.py` for **budget = 128, 256, 512** sequentially and save results to:
+```
+pred/
+└── <PREFIX>-budget128/   ← one .jsonl per LongBench task
+└── <PREFIX>-budget256/
+└── <PREFIX>-budget512/
+```
+
+Key parameters in `run_budgets.sh`:
+
+| Variable | Default | Description |
+|---|---|---|
+| `MODEL` | `mistralai/Mistral-7B-Instruct-v0.2` | HuggingFace model ID or local path |
+| `MAX_LENGTH` | `60000` | Maximum input context length (tokens) |
+| `MODE` | `dyn` | Compression mode: `dyn`, `ada`, `fix`, or leave empty for base |
+| `PREFIX` | `mistral_all_datasets-dyn` | Output folder name prefix |
+
+#### Option B: Single run
+
+```bash
+python new_pred.py \
+    --model_name_or_path mistralai/Mistral-7B-Instruct-v0.2 \
+    --max_length 60000 \
+    --out_name my_run_budget256 \
+    --mode dyn \
+    --budget 256
+```
+
+### Step 2 — Evaluate Results
+
+After predictions are complete, compute scores for all runs in `pred/`:
+
+```bash
+python eval.py
+```
+
+This reads every subfolder under `pred/`, scores each task using the appropriate metric, and writes:
+- `pred/<run_name>/result.json` — aggregate scores per task
+- `pred/<run_name>/list_result.json` — per-sample score lists
+
+**Example `result.json` output:**
+```json
+{
+    "qasper": 28.4,
+    "narrativeqa": 19.7,
+    "hotpotqa": 41.2,
+    ...
 }
-
-@article{feng2025identify,
-  title={Identify Critical KV Cache in LLM Inference from an Output Perturbation Perspective},
-  author={Feng, Yuan and Lv, Junlin and Cao, Yukun and Xie, Xike and Zhou, S Kevin},
-  journal={arXiv preprint arXiv:2502.03805},
-  year={2025}
-}
 ```
 
+---
 
-## Acknowledgement
+## Compression Modes
 
-We extend our gratitude to [SnapKV](https://github.com/FasterDecoding/SnapKV)  and [PyramidKV](https://github.com/Zefan-Cai/PyramidKV) for their contributions of open-source code, which have significantly facilitated the advancement of this project. We also thank the entire community for their interest in AdaKV and for their support, which has helped us go even further.
+| Mode flag | Strategy | Suitable for |
+|---|---|---|
+| `dyn` | Dynamic cross-layer budget allocation | **Recommended** — best accuracy/memory tradeoff |
+| `ada` | Per-head adaptive budget (original AdaKV) | Reproducing AdaKV paper results |
+| `fix` | Uniform fixed budget per head | SnapKV baseline |
+| *(none)* | No compression — full KV cache | Accuracy upper bound |
 
-<!-- ## Misc
+Additional hyperparameters for `new_pred.py`:
 
-%### Observation
+| Flag | Default | Description |
+|---|---|---|
+| `--budget` | `1024` | Total KV tokens budget per layer |
+| `--floor_alpha` | `0.2` | Minimum fraction of budget guaranteed per head |
+| `--pyram` | off | Enable pyramid-shaped budget distribution across layers |
+| `--pyram_beta` | `20` | Pyramid decay factor (from AdaKV paper) |
+| `--gqa_support` | off | Enable Grouped Query Attention support |
 
-%Different attention heads within each layer of LLMs exhibit significant disparities in the degrees of attention concentration. 
+---
 
-%Therefore, we can improves budget utilization by dynamically allocating the budget across different attention heads within the same %layer based on their concentration degrees.
+## Acknowledgements
 
-%![](./assets/images/head_vary.png) -->
+This project is built upon the following excellent works:
+
+- **AdaKV** — [FFY0/AdaKV](https://github.com/FFY0/AdaKV)  
+  *AdaKV: Optimizing KV Cache Eviction in LLMs with Adaptive Budget Allocation*  
+  The core monkeypatching architecture and adaptive budget allocation logic originate from this work.
+
+- **SnapKV** — [FasterDecoding/SnapKV](https://github.com/FasterDecoding/SnapKV)  
+  Efficient KV cache compression via observation-based token selection.
+
+- **LongBench** — [THUDM/LongBench](https://github.com/THUDM/LongBench)  
+  A bilingual, multitask benchmark for long context understanding in LLMs.
+
+---
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.  
+The `csrc/` directory contains a separate component under its own license (see [`csrc/LICENSE`](csrc/LICENSE)).

@@ -104,7 +104,7 @@ if __name__ == '__main__':
     for model in os.listdir("pred/"):
         scores = dict()
         scores_list = dict()
-        args.model = "adakv_original_budget256"  # narrative_budget128 - model
+        args.model = model  # narrative_budget128 - model
         if args.e:
             path = f"pred_e/{args.model}/"
         else:
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         all_files = os.listdir(path)
         print("Evaluating on:", all_files)
         for filename in all_files:
-            if not (filename.endswith("jsonl") or filename.endswith("jsonl_tmp")) or filename == "budget_and_entropy_stats.jsonl":
+            if not (filename.endswith("jsonl") or filename.endswith("jsonl_tmp")) or filename.startswith("budget_and_entropy_stats"):
                 continue
             predictions, answers, lengths = [], [], []
             dataset = filename.replace('.jsonl_tmp', '').replace('.jsonl', '')

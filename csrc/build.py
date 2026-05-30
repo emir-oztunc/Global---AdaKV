@@ -18,6 +18,7 @@ generator_flag = []
 cc_flag = []
 cc_flag.append("-gencode")
 cc_flag.append("arch=compute_80,code=sm_80")
+cc_flag.append("-allow-unsupported-compiler")
 
 
 # helper function to get cuda version
