@@ -1,5 +1,7 @@
 # Adaptive KV Cache on LongBench
 
+[![GitHub](https://img.shields.io/badge/GitHub-emir--oztunc%2FGlobal---AdaKV-blue?logo=github)](https://github.com/emir-oztunc/Global---AdaKV)
+
 > **Graduation Thesis Project** — Evaluating the effects of Adaptive KV Cache compression methods on long-context LLM performance using the [LongBench](https://github.com/THUDM/LongBench) benchmark.
 
 Built upon the original [AdaKV](https://github.com/FFY0/AdaKV) framework and extended with a **Dynamic Cross-Layer** budget allocation strategy.
@@ -106,7 +108,7 @@ The recommended way to run experiments without managing CUDA / Python dependenci
 
 ### Prerequisites
 - Docker with NVIDIA Container Toolkit installed
-- A GPU with ≥ 24 GB VRAM (tested on A100 80 GB)
+- A GPU with ≥ 24 GB VRAM (tested on **NVIDIA RTX PRO 5000 Black**, 48 GB VRAM, Driver 590.48 / CUDA 13.1)
 - HuggingFace model weights downloaded (e.g., `mistralai/Mistral-7B-Instruct-v0.2`)
 
 ### 1. Build the image
@@ -141,8 +143,8 @@ If you prefer a local environment (requires CUDA 11.8 and Python 3.10):
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<YOUR_USERNAME>/<YOUR_REPO>.git
-cd <YOUR_REPO>
+git clone https://github.com/emir-oztunc/Global---AdaKV.git
+cd Global---AdaKV
 ```
 
 ### 2. Install dependencies
