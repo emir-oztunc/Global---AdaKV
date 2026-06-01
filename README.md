@@ -61,8 +61,7 @@ G-AdaKV/
 │       │   ├── dataset2prompt.json     # Prompt templates for each LongBench task
 │       │   └── dataset2maxlen.json     # Max generation length per task
 │       ├── run_budgets.sh      # Main experiment runner (loops over budget sizes)
-│       ├── new_pred.py         # Prediction script (called by run_budgets.sh)
-│       ├── pred.py             # Alternative single-run prediction script
+│       ├── pred.py             # Prediction script (called by run_budgets.sh)
 │       ├── eval.py             # Evaluation script (computes scores from pred/)
 │       └── metrics.py          # Metric functions imported by eval.py
 │
@@ -94,11 +93,11 @@ from adaptive_snapkv.monkeypatch.monkeypatch import (
 
 | File | Role |
 |---|---|
-| `run_budgets.sh` | Outer loop: runs `new_pred.py` for budgets 128, 256, 512 sequentially |
-| `new_pred.py` | Loads model, applies monkeypatch, iterates over all 16 LongBench datasets |
+| `run_budgets.sh` | Outer loop: runs `pred.py` for budgets 128, 256, 512 sequentially |
+| `pred.py` | Loads model, applies monkeypatch, iterates over all 16 LongBench datasets |
 | `eval.py` | Reads `pred/<run_name>/*.jsonl` and writes `result.json` with task scores |
 | `metrics.py` | F1, ROUGE, retrieval, code similarity metric implementations |
-| `config/` | JSON configs required by `new_pred.py` at runtime |
+| `config/` | JSON configs required by `pred.py` at runtime |
 
 ---
 
@@ -187,7 +186,7 @@ Edit the variables at the top of `run_budgets.sh` to set your model path and mod
 bash run_budgets.sh
 ```
 
-This will run `new_pred.py` for **budget = 128, 256, 512** sequentially and save results to:
+This will run `pred.py` for **budget = 128, 256, 512** sequentially and save results to:
 ```
 pred/
 └── <PREFIX>-budget128/   ← one .jsonl per LongBench task
@@ -207,7 +206,7 @@ Key parameters in `run_budgets.sh`:
 #### Option B: Single run
 
 ```bash
-python new_pred.py \
+python pred.py \
     --model_name_or_path mistralai/Mistral-7B-Instruct-v0.2 \
     --max_length 60000 \
     --out_name my_run_budget256 \
@@ -248,7 +247,7 @@ This reads every subfolder under `pred/`, scores each task using the appropriate
 | `fix` | Uniform fixed budget per head | SnapKV baseline |
 | *(none)* | No compression — full KV cache | Accuracy upper bound |
 
-Additional hyperparameters for `new_pred.py`:
+Additional hyperparameters for `pred.py`:
 
 | Flag | Default | Description |
 |---|---|---|

@@ -1,3 +1,4 @@
+#python new_pred.py --model_name_or_path mistralai/Mistral-7B-Instruct-v0.2 --max_length 31500 --out_name dataset_name-model_mode-budget_size --mode dyn --budget 256
 import os
 from datasets import load_dataset
 import torch
@@ -12,7 +13,13 @@ import torch.multiprocessing as mp
 import gc
 import time
 
-from adaptive_snapkv.monkeypatch.monkeypatch import replace_llama_adaptive, config_compress
+from adaptive_snapkv.monkeypatch.monkeypatch import (
+    config_compress,
+    replace_llama_dynamic,
+    replace_mistral_dynamic,
+    replace_llama_adaptive,
+    replace_mistral_adaptive
+)
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
@@ -23,7 +30,7 @@ def parse_args(args=None):
     parser.add_argument("--out_name", type=str, required=True)
     parser.add_argument('--compress_args_path', type=str, default=None, help="Path to the compress args")
     # parser.add_argument('--adaptive', action='store_true', help="Use adaptive budgets allocation across heads")
-    parser.add_argument('--mode', type=str, choices=['ada', 'fix', 'test', "slm"], help="Ada mode, fix mode or normal")
+    parser.add_argument('--mode', type=str, choices=['ada', 'fix', 'test', "slm", "dyn"], help="Ada mode, fix mode, slm, or dynamic")
     parser.add_argument('--floor_alpha',type=float,default=0.2,help="floor_alpha budgets for each head")
     parser.add_argument('--gqa_support',action='store_true', default=False, help="init gqa_support")
     parser.add_argument('--gqa_func',type=str, default="mean", help="gqa operation:optional max mean")
@@ -57,7 +64,7 @@ def build_chat(tokenizer, prompt, model_name):
         prompt = header + f" ### Human: {prompt}\n###"
     elif "internlm" in model_name:
         prompt = f"<|User|>:{prompt}<eoh>\n<|Bot|>:"
-    elif "llama-3" in model_name.lower() and "instruct" in model_name.lower():
+    elif ("llama-3" in model_name.lower() or "mistral" in model_name.lower()) and "instruct" in model_name.lower():
         prompt =  [{ "role": "user", "content": prompt}]
         prompt = tokenizer.apply_chat_template(
                 prompt,
@@ -78,7 +85,11 @@ def get_pred(model, tokenizer, data, max_length, max_gen, prompt_format, dataset
     preds = []
     times = []
     with open(f"{out_path}_tmp", "w", encoding="utf-8") as f:
-        for json_obj in tqdm(data):
+        for sample_idx, json_obj in enumerate(tqdm(data)):
+            # Track which dataset/sample is being processed (used by budget_and_entropy_stats.jsonl)
+            model.config.current_dataset = dataset
+            model.config.current_sample_idx = sample_idx
+
             prompt = prompt_format.format(**json_obj)
             # truncate to fit max_length (we suggest truncate in the middle, since the left and right side may contain crucial instructions)
             tokenized_prompt = tokenizer(prompt, truncation=False, return_tensors="pt").input_ids[0]
@@ -153,16 +164,26 @@ def seed_everything(seed):
     torch.cuda.manual_seed_all(seed)
 
 def load_model_and_tokenizer(path):
-    tokenizer = AutoTokenizer.from_pretrained(path,
-                                              trust_remote_code=True,
-                                              )
-    model = AutoModelForCausalLM.from_pretrained(path,
-                                             torch_dtype=torch.bfloat16,
-                                             # TODO: hard code
-                                             device_map="auto",
-                                             attn_implementation="flash_attention_2",
-                                             trust_remote_code=True,
-                                             )
+    tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True)
+
+    # --- 4-bit quantizasyon (devre dışı) ---
+    # bnb_config = BitsAndBytesConfig(
+    #     load_in_4bit=True,
+    #     bnb_4bit_compute_dtype=torch.float16,
+    #     bnb_4bit_quant_type="nf4",
+    #     bnb_4bit_use_double_quant=True
+    # )
+
+    # Load in 16-bit (FP16), auto-distribute across available GPUs
+    model = AutoModelForCausalLM.from_pretrained(
+        path,
+        torch_dtype=torch.float16,
+        # quantization_config=bnb_config,  # 4-bit devre dışı
+        device_map="auto",
+        low_cpu_mem_usage=True,
+        attn_implementation="flash_attention_2",
+        trust_remote_code=True,
+    )
     model = model.eval()
     return model, tokenizer
 
@@ -173,6 +194,7 @@ if __name__ == '__main__':
     mp.set_start_method('spawn', force=True)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(device)
     model_name_or_path = args.model_name_or_path
     model_name = args.model_name_or_path.split("/")[-1]
     # define your model
@@ -181,18 +203,19 @@ if __name__ == '__main__':
         datasets = ["qasper", "multifieldqa_en", "hotpotqa", "2wikimqa", "gov_report", "multi_news", \
             "trec", "triviaqa", "samsum", "passage_count", "passage_retrieval_en", "lcc", "repobench-p"]
     else:
-        datasets = ["narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
-                    "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
-                    "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
+        datasets = ["qasper", "narrativeqa", "multifieldqa_en", "hotpotqa", "2wikimqa", "musique", 
+        "gov_report", "qmsum", "multi_news", "trec", "triviaqa", "samsum", "passage_count", "passage_retrieval_en", "lcc", "repobench-p"]
 
-    datasets = [
+    """datasets = [
                 "qasper", "narrativeqa", "multifieldqa_en", # single doc
                 "hotpotqa", "2wikimqa", "musique",          # multi doc
                 "trec", "triviaqa", "samsum",               # few-shot
                 "gov_report", "qmsum", "multi_news",        # sum
                 "passage_count", "passage_retrieval_en",    # Synthetic
                 "lcc", "repobench-p",                       # code
-                ]
+                ]"""
+
+    """datasets = ["narrativeqa"]"""
 
     print(datasets)
     # we design specific prompt format and max generation length for each task, feel free to modify them to optimize model output
@@ -206,7 +229,22 @@ if __name__ == '__main__':
 
     if args.mode == "ada":
         print("Ada mode")
+        replace_mistral_adaptive()
         replace_llama_adaptive()
+    elif args.mode == "dyn":
+        print("Dynamic Cross-Layer mode")
+        if "mistral" in model_name_or_path.lower():
+            replace_mistral_dynamic()
+        else:
+            replace_llama_dynamic()
+    elif args.mode == "fix":
+        print("Fix mode")
+        replace_mistral_fixed()
+        replace_llama_fixed()
+    elif args.mode == "slm":
+        print("Slm mode")
+        replace_mistral_slm()
+        replace_llama_slm()
     else:
         print("Base mode")
 
@@ -214,8 +252,10 @@ if __name__ == '__main__':
     # NOTE: load model after replace
     model, tokenizer = load_model_and_tokenizer(model_name_or_path)
 
-    config_compress(model, base_capacity=args.budget, pyram_mode=args.pyram, floor_alpha=args.floor_alpha, gqa_support=args.gqa_support, gqa_func=args.gqa_func)
-
+    # Pass beta=args.pyram_beta to wire up the b=20 parameter from the paper
+    out_dir_path = f"pred_e/{args.out_name}" if args.e else f"pred/{args.out_name}"
+    config_compress(model, base_capacity=args.budget, pyram_mode=args.pyram, floor_alpha=args.floor_alpha, gqa_support=args.gqa_support, gqa_func=args.gqa_func, beta=args.pyram_beta, out_dir=out_dir_path)
+    
     for dataset in datasets:
         if args.e:
             data = load_dataset(args.dataset, f"{dataset}_e", split='test', data_dir=f"{args.dataset}/data")

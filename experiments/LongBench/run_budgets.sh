@@ -13,7 +13,7 @@ for BUDGET in 128 256 512; do
     echo "========================================"
     echo "  Starting: budget=${BUDGET}  out=${OUT_NAME}"
     echo "========================================"
-    python new_pred.py \
+    python pred.py \
         --model_name_or_path "$MODEL" \
         --max_length "$MAX_LENGTH" \
         --out_name "$OUT_NAME" \
