@@ -1,6 +1,5 @@
 # Adaptive KV Cache on LongBench
 
-[![GitHub](https://img.shields.io/badge/GitHub-emir--oztunc%2FGlobal---AdaKV-blue?logo=github)](https://github.com/emir-oztunc/Global---AdaKV)
 
 > **Graduation Thesis Project** — Evaluating the effects of Adaptive KV Cache compression methods on long-context LLM performance using the [LongBench](https://github.com/THUDM/LongBench) benchmark.
 
