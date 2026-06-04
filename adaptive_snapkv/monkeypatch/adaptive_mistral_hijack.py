@@ -160,7 +160,7 @@ def adaptive_mistral_flash_attn2_forward(
             "`static` cache implementation is not compatible with `attn_implementation==flash_attention_2` "
             "make sure to use `sdpa` in the mean time, and open an issue at https://github.com/huggingface/transformers"
         )
-    # NOTE: adakv
+    # NOTE: g-adakv
     init_adaptive_snapkv(self)
 
     output_attentions = False

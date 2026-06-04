@@ -77,7 +77,7 @@ def adaptive_LlamaModel_forward(
     #         "Please use an appropriate `Cache` class (https://huggingface.co/docs/transformers/v4.41.3/en/internal/generation_utils#transformers.Cache)"
     #     )
 
-    # NOTE: adakv
+    # NOTE: g-adakv
     return_legacy_cache = True
     past_key_values = DynamicCacheSplitHeadFlatten.from_legacy_cache(past_key_values)
     logger.warning_once(
@@ -174,7 +174,7 @@ def adaptive_llama_flash_attn2_forward(
     cache_position: Optional[torch.LongTensor] = None,
     position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # will become mandatory in v4.45
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-    # NOTE: adakv
+    # NOTE: g-adakv
     init_adaptive_snapkv(self)
     if isinstance(past_key_value, StaticCache):
         raise ValueError(

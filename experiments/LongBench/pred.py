@@ -1,4 +1,4 @@
-#python new_pred.py --model_name_or_path mistralai/Mistral-7B-Instruct-v0.2 --max_length 31500 --out_name dataset_name-model_mode-budget_size --mode dyn --budget 256
+#python pred.py --model_name_or_path meta-llama/Llama-3.1-8B-Instruct --max_length 31500 --out_name dataset_name-model_mode-budget_size --mode dyn --budget 256
 import os
 from datasets import load_dataset
 import torch
@@ -166,7 +166,6 @@ def seed_everything(seed):
 def load_model_and_tokenizer(path):
     tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True)
 
-    # --- 4-bit quantizasyon (devre dışı) ---
     # bnb_config = BitsAndBytesConfig(
     #     load_in_4bit=True,
     #     bnb_4bit_compute_dtype=torch.float16,
@@ -178,7 +177,7 @@ def load_model_and_tokenizer(path):
     model = AutoModelForCausalLM.from_pretrained(
         path,
         torch_dtype=torch.float16,
-        # quantization_config=bnb_config,  # 4-bit devre dışı
+        # quantization_config=bnb_config,  
         device_map="auto",
         low_cpu_mem_usage=True,
         attn_implementation="flash_attention_2",

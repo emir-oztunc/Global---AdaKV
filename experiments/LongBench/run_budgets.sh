@@ -2,10 +2,10 @@
 # Runs predictions sequentially for budget sizes 128, 256, and 512.
 # Usage: bash run_budgets.sh [--model MODEL] [--max_length MAX_LEN] [--mode MODE] [--out_prefix PREFIX]
 
-MODEL="mistralai/Mistral-7B-Instruct-v0.2"
+MODEL="meta-llama/Llama-3.1-8B-Instruct"
 MAX_LENGTH=60000
 MODE="dyn"
-PREFIX="mistral_all_datasets-dyn"  # output name prefix; budget size is appended automatically
+PREFIX="llama_all_datasets-dyn"  # output name prefix; budget size is appended automatically
 
 for BUDGET in 128 256 512; do
     OUT_NAME="${PREFIX}-budget${BUDGET}"

@@ -120,11 +120,16 @@ docker build -t g-adakv:latest .
 
 ```bash
 docker run --gpus all -it \
+  -e HF_HOME=/models \
   -v /path/to/your/hf_models:/models \
   g-adakv:latest bash
 ```
 
 > **Note:** Mount your HuggingFace model cache so the container can access model weights without re-downloading them.
+> - On Linux/Mac: `-v ~/.cache/huggingface:/models`
+> - On Windows: `-v C:\Users\<Your_Username>\.cache\huggingface:/models`
+
+> **Windows Users:** If you cloned this repository on Windows, bash scripts might have `CRLF` line endings. Before running them inside the container, convert them to `LF` format using `sed` (e.g., `sed -i 's/\r$//' run_budgets.sh`).
 
 ### 3. Inside the container, run experiments
 
@@ -139,6 +144,8 @@ bash run_budgets.sh
 
 If you prefer a local environment (requires CUDA 11.8 and Python 3.10):
 
+> **Note:** The manual setup is designed for **Linux** or **WSL (Windows Subsystem for Linux)**. Native Windows is not officially supported due to `flash-attention` wheel compatibility and `make` commands. Windows users are strongly encouraged to use the Docker method above.
+
 ### 1. Clone the repository
 
 ```bash
@@ -148,7 +155,19 @@ cd Global---AdaKV
 
 ### 2. Install dependencies
 
+It is highly recommended to use a **Conda** environment (Python 3.10) to avoid version conflicts and easily manage the CUDA toolkit if you don't have it installed system-wide:
+
 ```bash
+conda create -n global-adakv python=3.10 -y
+conda activate global-adakv
+# Install CUDA toolkit (if nvcc is not available on your system)
+conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit -y
+```
+
+Install the required Python packages. **Note:** `setuptools<70.0.0` is required because newer versions remove `pkg_resources` which breaks PyTorch's C++ extension builder.
+
+```bash
+pip install setuptools==69.5.1
 pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 \
     --index-url https://download.pytorch.org/whl/cu118
 
