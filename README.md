@@ -144,8 +144,8 @@ If you prefer a local environment (requires CUDA 11.8 and Python 3.10):
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/emir-oztunc/Global---AdaKV.git
-cd Global---AdaKV
+git clone https://github.com/emir-oztunc/Global-AdaKV.git
+cd Global-AdaKV
 ```
 
 ### 2. Install dependencies
