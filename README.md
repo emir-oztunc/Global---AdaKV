@@ -31,7 +31,7 @@ We benchmark three compression strategies against a full-cache baseline across 1
 
 | Method | Description |
 |---|---|
-| **`dyn`** (Dynamic Cross-Layer) | Budget allocated dynamically across transformer layers based on attention entropy |
+| **`dyn`** (Dynamic Cross-Layer) | Budget allocated dynamically across all layers and heads via a single global Top-k attention score selection |
 | **`ada`** (AdaKV) | Adaptive per-head budget from the original AdaKV paper |
 | **`fix`** (SnapKV Fixed) | Fixed uniform budget per head |
 | *Base* | No compression — full KV cache |
