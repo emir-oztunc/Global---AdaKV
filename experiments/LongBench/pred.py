@@ -16,9 +16,7 @@ import time
 from adaptive_snapkv.monkeypatch.monkeypatch import (
     config_compress,
     replace_llama_dynamic,
-    replace_mistral_dynamic,
-    replace_llama_adaptive,
-    replace_mistral_adaptive
+    replace_llama_adaptive
 )
 
 def parse_args(args=None):
@@ -30,7 +28,7 @@ def parse_args(args=None):
     parser.add_argument("--out_name", type=str, required=True)
     parser.add_argument('--compress_args_path', type=str, default=None, help="Path to the compress args")
     # parser.add_argument('--adaptive', action='store_true', help="Use adaptive budgets allocation across heads")
-    parser.add_argument('--mode', type=str, choices=['ada', 'fix', 'test', "slm", "dyn"], help="Ada mode, fix mode, slm, or dynamic")
+    parser.add_argument('--mode', type=str, choices=['ada', 'test', 'dyn'], help="Ada mode, test mode, or dynamic")
     parser.add_argument('--floor_alpha',type=float,default=0.2,help="floor_alpha budgets for each head")
     parser.add_argument('--gqa_support',action='store_true', default=False, help="init gqa_support")
     parser.add_argument('--gqa_func',type=str, default="mean", help="gqa operation:optional max mean")
@@ -64,7 +62,7 @@ def build_chat(tokenizer, prompt, model_name):
         prompt = header + f" ### Human: {prompt}\n###"
     elif "internlm" in model_name:
         prompt = f"<|User|>:{prompt}<eoh>\n<|Bot|>:"
-    elif ("llama-3" in model_name.lower() or "mistral" in model_name.lower()) and "instruct" in model_name.lower():
+    elif "llama-3" in model_name.lower() and "instruct" in model_name.lower():
         prompt =  [{ "role": "user", "content": prompt}]
         prompt = tokenizer.apply_chat_template(
                 prompt,
@@ -228,22 +226,10 @@ if __name__ == '__main__':
 
     if args.mode == "ada":
         print("Ada mode")
-        replace_mistral_adaptive()
         replace_llama_adaptive()
     elif args.mode == "dyn":
         print("Dynamic Cross-Layer mode")
-        if "mistral" in model_name_or_path.lower():
-            replace_mistral_dynamic()
-        else:
-            replace_llama_dynamic()
-    elif args.mode == "fix":
-        print("Fix mode")
-        replace_mistral_fixed()
-        replace_llama_fixed()
-    elif args.mode == "slm":
-        print("Slm mode")
-        replace_mistral_slm()
-        replace_llama_slm()
+        replace_llama_dynamic()
     else:
         print("Base mode")
 

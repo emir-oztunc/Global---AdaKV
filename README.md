@@ -46,9 +46,7 @@ G-AdaKV/
 │   └── monkeypatch/
 │       ├── monkeypatch.py              # Entry point: model replacement functions
 │       ├── adaptive_llama_hijack.py    # AdaKV (per-head adaptive) for LLaMA
-│       ├── adaptive_mistral_hijack.py  # AdaKV (per-head adaptive) for Mistral
 │       ├── dynamic_llama_hijack.py     # Dynamic cross-layer mode for LLaMA
-│       ├── dynamic_mistral_hijack.py   # Dynamic cross-layer mode for Mistral
 │       ├── snapkv_utils.py             # Core SnapKV attention utilities
 │       └── dynamic_snapkv_utils.py     # Dynamic cross-layer attention utilities
 │
@@ -82,9 +80,7 @@ The `monkeypatch` subpackage **replaces internal attention forward functions** o
 from adaptive_snapkv.monkeypatch.monkeypatch import (
     config_compress,          # Set hyperparameters on the model config
     replace_llama_dynamic,    # Activate dynamic cross-layer mode for LLaMA
-    replace_mistral_dynamic,  # Activate dynamic cross-layer mode for Mistral
     replace_llama_adaptive,   # Activate AdaKV mode for LLaMA
-    replace_mistral_adaptive, # Activate AdaKV mode for Mistral
 )
 ```
 
@@ -106,8 +102,8 @@ The recommended way to run experiments without managing CUDA / Python dependenci
 
 ### Prerequisites
 - Docker with NVIDIA Container Toolkit installed
-- A GPU with ≥ 24 GB VRAM (tested on **NVIDIA RTX PRO 5000 Black**, 48 GB VRAM, Driver 590.48 / CUDA 13.1)
-- HuggingFace model weights downloaded (e.g., `mistralai/Mistral-7B-Instruct-v0.2`)
+- A GPU with ≥ 24 GB VRAM (tested on **NVIDIA GeForce RTX 3090 GPU**, 24 GB VRAM)
+- HuggingFace model weights downloaded (e.g., `meta-llama/Llama-3.1-8B-Instruct`)
 
 ### 1. Build the image
 
@@ -216,16 +212,16 @@ Key parameters in `run_budgets.sh`:
 
 | Variable | Default | Description |
 |---|---|---|
-| `MODEL` | `mistralai/Mistral-7B-Instruct-v0.2` | HuggingFace model ID or local path |
+| `MODEL` | `meta-llama/Llama-3.1-8B-Instruct` | HuggingFace model ID or local path |
 | `MAX_LENGTH` | `60000` | Maximum input context length (tokens) |
-| `MODE` | `dyn` | Compression mode: `dyn`, `ada`, `fix`, or leave empty for base |
-| `PREFIX` | `mistral_all_datasets-dyn` | Output folder name prefix |
+| `MODE` | `dyn` | Compression mode: `dyn`, `ada`, or leave empty for base |
+| `PREFIX` | `llama_all_datasets-dyn` | Output folder name prefix |
 
 #### Option B: Single run
 
 ```bash
 python pred.py \
-    --model_name_or_path mistralai/Mistral-7B-Instruct-v0.2 \
+    --model_name_or_path meta-llama/Llama-3.1-8B-Instruct \
     --max_length 60000 \
     --out_name my_run_budget256 \
     --mode dyn \

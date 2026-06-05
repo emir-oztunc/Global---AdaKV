@@ -1,7 +1,6 @@
 from importlib.metadata import version
 import warnings
 import transformers
-import transformers.models.mistral.modeling_mistral
 
 from adaptive_snapkv.monkeypatch.adaptive_llama_hijack import adaptive_llama_flash_attn2_forward,adaptive_LlamaModel_forward
 from adaptive_snapkv.monkeypatch.adaptive_llama_hijack import prepare_inputs_for_generation_llama as ada_prepare_inputs_for_generation_llama
@@ -12,20 +11,7 @@ from adaptive_snapkv.monkeypatch.dynamic_llama_hijack import (
     prepare_inputs_for_generation_llama as dynamic_prepare_inputs,
 )
 
-try:
-    from adaptive_snapkv.monkeypatch.adaptive_mistral_hijack import adaptive_mistral_flash_attn2_forward,adaptive_MistralModel_forward
-    from adaptive_snapkv.monkeypatch.adaptive_mistral_hijack import prepare_inputs_for_generation_mistral as ada_prepare_inputs_for_generation_mistral
-except ImportError:
-    pass
 
-try:
-    from adaptive_snapkv.monkeypatch.dynamic_mistral_hijack import (
-        adaptive_MistralModel_forward as dynamic_MistralModel_forward,
-        adaptive_mistral_flash_attn2_forward as dynamic_mistral_flash_attn2_forward,
-        prepare_inputs_for_generation_mistral as dynamic_prepare_inputs_mistral,
-    )
-except ImportError:
-    pass
 
 def check_version():
     try:
@@ -62,19 +48,6 @@ def config_compress(model, window_size=32, base_capacity=1024, kernel_size=7, po
     model.model.config.out_dir = out_dir
 
     return model
-
-def replace_mistral_adaptive():
-    check_version()
-    transformers.models.mistral.modeling_mistral.MistralForCausalLM.prepare_inputs_for_generation = ada_prepare_inputs_for_generation_mistral
-    transformers.models.mistral.modeling_mistral.MistralFlashAttention2.forward = adaptive_mistral_flash_attn2_forward
-    transformers.models.mistral.modeling_mistral.MistralModel.forward = adaptive_MistralModel_forward
-
-def replace_mistral_dynamic():
-    check_version()
-    transformers.models.mistral.modeling_mistral.MistralModel.forward = dynamic_MistralModel_forward
-    transformers.models.mistral.modeling_mistral.MistralFlashAttention2.forward = dynamic_mistral_flash_attn2_forward
-    transformers.models.mistral.modeling_mistral.MistralForCausalLM.prepare_inputs_for_generation = dynamic_prepare_inputs_mistral
-
 
 def replace_llama_dynamic():
     check_version()
